@@ -4,5 +4,6 @@
 #include <Wire.h>
 #include<String.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
 #endif
 #define CANSAT_GAGAN
