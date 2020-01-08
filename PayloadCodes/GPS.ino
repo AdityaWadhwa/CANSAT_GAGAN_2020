@@ -1,39 +1,40 @@
 
 void setupGPS()
 {
-  myserial.begin(9600);
+  GPSserial.begin(9600);
 }
-void Gps()
+void GPSUPDATE()
 {
-  while (myserial.available()>0) 
-    {        
+  while (GPSserial.available()>0) 
+    {    
+      Serial.println("GPS SERIAL is available");    
       int comma=0;
-      if(myserial.peek()==',')
+      if(GPSserial.peek()==',')
        comma++;
     switch (comma){
       case 1:
-      GPS_time+=myserial.read();
+      GPS_time+=GPSserial.read();
       break;
       case 2:
-      GPS_latitude+=myserial.read();
+      GPS_latitude+=GPSserial.read();
       break;
       case 3:
-      GPS_latitude+=myserial.read();
+      GPS_latitude+=GPSserial.read();
       break;
       case 4:
-      GPS_longitude+=myserial.read();
+      GPS_longitude+=GPSserial.read();
       break;
       case 5:
-      GPS_longitude+=myserial.read();
+      GPS_longitude+=GPSserial.read();
       break;
       case 7:
-      GPS_sats+=myserial.read();
+      GPS_sats+=GPSserial.read();
       break;
       case 9:
-      GPS_altitude+=myserial.read();
+      GPS_altitude+=GPSserial.read();
       break;
       case 10:
-      GPS_alt+=myserial.read();
+      GPS_alt+=GPSserial.read();
       break;
       default:
       break;
