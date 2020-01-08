@@ -5,6 +5,7 @@
 #include<String.h>
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
+#include <hpma115s0.h>
 #include "SD.h"
 #endif
 #define CANSAT_GAGAN
