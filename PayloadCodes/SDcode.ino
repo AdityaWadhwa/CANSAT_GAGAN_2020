@@ -30,20 +30,4 @@ else
 {
   Serial.println("Error writing to file !");
 }
-
-String pktString = String(pkt);
-if(SD.exists("Packets.csv")) // check the card is still there
-{ 
-  // now append new data file
-  sensorData = SD.open("Packets.csv", FILE_WRITE);
-  if (sensorData)
-  {
-    sensorData.println(pktString);
-    sensorData.close(); // close the file
-  }
-}
-else
-{
-  Serial.println("Error writing to file !");
-}
 }

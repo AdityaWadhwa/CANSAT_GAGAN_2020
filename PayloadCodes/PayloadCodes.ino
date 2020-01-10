@@ -1,19 +1,21 @@
 /*Data handling code has to be rectified 
  * software code has to be written
  * air speed code has to be added 
+ * sd card read code for setup
  */
 #include "CANSAT_GAGAN.h"
 #define Voltage_PIN A7
-//#define LDR_PIN
-//#define LDR_voltage  
+#define LDR_PIN A1
+#define LDR_voltage 0 // To be experimently found  
 SoftwareSerial GPSserial(4,3);
 SoftwareSerial PPMserial(6,5); // RX, TX
+
 HPMA115S0 my_hpm(PPMserial);
 
 BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
 DS3231 Clock;
 
-
+int software_state;
 float temperature, pressure, gnd_alt,altitude;            // Create the temperature, pressure and altitude variables
 bool Century=false;
 bool h12;
@@ -35,13 +37,11 @@ File sensorData;
 
 void setup()
 {
-  pkt=0;
+  software_state = 1;
   Serial.begin(9600);
-  setupGPS();
-  setupBMP();
-  setupRTC();
+  Wire.begin();
   setupSD();
-
+  EEPROM.read(1,pkt);// packet 
   // initialize timer1 
   noInterrupts();           // disable all interrupts
   TCCR1A = 0;
@@ -57,6 +57,10 @@ void setup()
   TCCR1B |= (1 << CS12);    // 256 prescaler 
   TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
   interrupts();             // enable all interrupts
+ 
+  setupGPS();
+  setupBMP();
+  setupRTC();  
 }
 
 ISR(TIMER1_OVF_vect)        // interrupt service routine 
@@ -82,7 +86,7 @@ void Packet()
   Tele = "5160,";
   
   pkt++;
-  
+  EEPROM.write(1,pkt);
   dtostrf(Ms_time, 4, 6, buff);
   Tele += buff;
   Tele += ",";
@@ -112,19 +116,25 @@ void Packet()
   Tele += buff;
 }
 
-char Software_stat()
+int Software_stat()
 {
   /*
-   0 for boot
-   1 for idle 
-   2 for Launch Detect
-   3 for Payload Deployement
-   4 for parachute deployement
-   5 for Descent 
-   6 for Ascent */
-   if(LDR())
-   return '3';
+   1 for boot //done
+   2 for Ascent 
+   3 for Cansat Deployment
+   4 for Descent
+   5 for Payload Deployement
+   6 for Parachute deployement 
+   7 for Landing
+   */
    
+   if(LDR())
+   software_state =3;
+   int temp_ss;
+   EEPROM.read(3,temp_ss);
+   if(temp_ss>software_state)
+      software_state=temp_ss;
+   EEPROM.write(3,software_state);
 }
 
 bool LDR()
