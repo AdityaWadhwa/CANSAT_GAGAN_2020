@@ -1,21 +1,12 @@
-
-ISR(TIMER2_COMPA_vect)
+void setupPPM()
 {
-  ppm = analogRead(A6);
+  PPMserial.begin(9600);
+  delay(100);
+  while(!(my_hpm.stop_autosend()));
+  delay(500);
+  while(!(my_hpm.start_measurement()));
 }
-
-void SetupPM() {
-  
-  cli();
-  
-  pinMode(5,OUTPUT);
-  pinMode(A6,INPUT);
-  TCNT2 = 0;
-  OCR2A = 50;
-  TCCR2A = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
-  TCCR2B = _BV(CS22) | _BV(CS21)| _BV(CS20);
-  OCR2B = 60;
-  TIMSK2 |= _BV(OCIE2A);
-
-  sei();
+void PPMUPDATE()
+{
+ while(!(my_hpm.read(&p25,&p10)));
 }

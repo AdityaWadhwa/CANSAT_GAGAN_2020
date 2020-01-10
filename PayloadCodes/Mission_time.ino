@@ -2,7 +2,7 @@
 
 void setupRTC() {
 	// Start the I2C interface
-	Wire.begin();
+	
   Hr_base = Clock.getHour(h12, PM);
   Minutes_base = Clock.getMinute();
   Sec_base  = Clock.getSecond();
