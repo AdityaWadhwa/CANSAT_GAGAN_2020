@@ -23,6 +23,8 @@ void setupBMP()
   
   Serial.print("ground alt is ");
   Serial.println(gnd_alt);
+
+  return;
 }
 
 void BMPUPDATE() 

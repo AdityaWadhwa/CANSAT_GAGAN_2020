@@ -1,7 +1,8 @@
 #include "CANSAT_GAGAN.h"
-#define pin A7
+//#pragma message("incluing")
 SoftwareSerial GPSserial(4,3);
 SoftwareSerial PPMserial(6,5);
+HPMA115S0 my_hpm(PPMserial);
 float temperature, pressure, gnd_alt,altitude;            // Create the temperature, pressure and altitude variables
 BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
 DS3231 Clock;
@@ -10,11 +11,12 @@ bool h12;
 bool PM;
 byte ADay, AHour, AMinute, ASecond, ABits;
 bool ADy, A12h, Apm;
-int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt,ppm;
+int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
 double vol;
 String GPS_time,GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt;
 char buff[100];
 String Tele = "";
+float pm25,pm10,ppm,AirSpeed;
 
 int Hr_base;
 int Minutes_base;
@@ -23,17 +25,25 @@ int Sec_base;
 int timer1_counter;
 
 const int CSpin = 10;
-File sensorData;
+//File sensorData;
 
 void setup()
 {
+  Serial.begin(19200);
+  Serial.println("Setup called");
+  
+  pinMode(8,INPUT);     //PWM to camera, not in use right now
+//  pinMode(A0,INPUT);    //battery volatge measurement
+//  pinMode(A1,INPUT);    //LDR voltage measurement
+//  pinMode(A7,INPUT);    //air speed sensor analog input
+  
   pkt=0;
-  Serial.begin(9600);
   setupGPS();
   setupBMP();
+  Serial.println("Now calling RTC");
   setupRTC();
-  setupSD();
-
+//  setupSD();
+//  setupPPM();
   // initialize timer1 
   noInterrupts();           // disable all interrupts
   TCCR1A = 0;
@@ -48,24 +58,30 @@ void setup()
   TCNT1 = timer1_counter;   // preload timer
   TCCR1B |= (1 << CS12);    // 256 prescaler 
   TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
+
+  Serial.println("Setup finish");
+  delay(100);
+
   interrupts();             // enable all interrupts
+
 }
 
 ISR(TIMER1_OVF_vect)        // interrupt service routine 
 {
   TCNT1 = timer1_counter;   // preload timer
   Packet();
-  writeToSD();
+//  writeToSD();
   Serial.println(Tele);
 }
 
 void loop()
 {
-  BMPUPDATE();
   Mission_time();
   voltage();
   GPSUPDATE();
-  PPMUPDATE();
+//  BMPUPDATE();
+//  PPMUPDATE();
+//  AirSpeedUpdate();
   delay(100);
 }
 
@@ -95,8 +111,17 @@ void Packet()
   Tele += buff;
   Tele += ",";
 
+  dtostrf(ppm, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+
+  dtostrf(AirSpeed, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+
   dtostrf(vol, 4, 6, buff);
   Tele += buff;
+  
   Tele+=","+GPS_time+","+GPS_latitude+","+GPS_longitude+","+GPS_altitude+","+GPS_sats;
 }
 
