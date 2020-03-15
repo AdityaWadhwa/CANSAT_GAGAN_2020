@@ -7,21 +7,25 @@ void setupPPM()
  
    // Stop autosend
   int my_status = my_hpm.stop_autosend(); 
-  if (my_status == 1){
+  if (my_status == 1)
+  {
     Serial.println("Autosend disabled");
   }
-  else{
-  Serial.print("Error");  
+  else
+  {
+    Serial.print("Error");  
   }
   delay(500);
   
   // Start fan (and measurement mode)
   my_status = my_hpm.start_measurement();  
-  if (my_status == 1){
+  if (my_status == 1)
+  {
     Serial.println("Start Particle Measurement");
   }
-  else{
-  Serial.print("Error");  
+  else
+  {
+    Serial.print("Error");  
   }
   delay(5000);
 }

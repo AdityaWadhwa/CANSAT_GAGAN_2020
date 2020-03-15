@@ -1,9 +1,10 @@
 #include "CANSAT_GAGAN.h"
-//#pragma message("incluing")
-SoftwareSerial GPSserial(4,3);
+
+SoftwareSerial GPSSerial(4,3);
+Adafruit_GPS GPS(&GPSSerial);
 SoftwareSerial PPMserial(6,5);
 HPMA115S0 my_hpm(PPMserial);
-float temperature, pressure, gnd_alt,altitude;            // Create the temperature, pressure and altitude variables
+float temperature, pressure, gnd_alt, pres_alt, prev_alt;            // Create the temperature, pressure and altitude variables
 BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
 DS3231 Clock;
 bool Century=false;
@@ -13,7 +14,13 @@ byte ADay, AHour, AMinute, ASecond, ABits;
 bool ADy, A12h, Apm;
 int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
 double vol;
-String GPS_time,GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt;
+struct GPS_Time
+{
+  int h;
+  int m;
+  int s;
+}GPS_time;
+String GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
 char buff[100];
 String Tele = "";
 float pm25,pm10,ppm,AirSpeed;
@@ -25,7 +32,8 @@ int Sec_base;
 int timer1_counter;
 
 const int CSpin = 10;
-//File sensorData;
+File sensorData;
+int state;
 
 void setup()
 {
@@ -33,17 +41,18 @@ void setup()
   Serial.println("Setup called");
   
   pinMode(8,INPUT);     //PWM to camera, not in use right now
-//  pinMode(A0,INPUT);    //battery volatge measurement
-//  pinMode(A1,INPUT);    //LDR voltage measurement
-//  pinMode(A7,INPUT);    //air speed sensor analog input
+  pinMode(A0,INPUT);    //battery volatge measurement
+  pinMode(A1,INPUT);    //LDR voltage measurement
+  pinMode(A7,INPUT);    //air speed sensor analog input
   
   pkt=0;
   setupGPS();
   setupBMP();
   Serial.println("Now calling RTC");
   setupRTC();
-//  setupSD();
-//  setupPPM();
+  setupSD();
+  setupPPM();
+
   // initialize timer1 
   noInterrupts();           // disable all interrupts
   TCCR1A = 0;
@@ -70,7 +79,7 @@ ISR(TIMER1_OVF_vect)        // interrupt service routine
 {
   TCNT1 = timer1_counter;   // preload timer
   Packet();
-//  writeToSD();
+  writeToSD();
   Serial.println(Tele);
 }
 
@@ -79,9 +88,10 @@ void loop()
   Mission_time();
   voltage();
   GPSUPDATE();
-//  BMPUPDATE();
-//  PPMUPDATE();
-//  AirSpeedUpdate();
+  BMPUPDATE();
+  PPMUPDATE();
+  AirSpeedUpdate();
+  update_state();
   delay(100);
 }
 
@@ -99,7 +109,7 @@ void Packet()
   Tele += buff;
   Tele += ",";  
   
-  dtostrf(altitude, 4, 6, buff);
+  dtostrf(pres_alt, 4, 6, buff);
   Tele += buff;
   Tele += ",";  
   
@@ -111,36 +121,56 @@ void Packet()
   Tele += buff;
   Tele += ",";
 
-  dtostrf(ppm, 4, 6, buff);
+  dtostrf(vol, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+
+  Tele+= "," + (String)(GPS_time.h) + ":" + (String)(GPS_time.m) + ":" + (String)(GPS_time.s) + "," + GPS_latitude + "," + GPS_longitude + "," + GPS_altitude + "," + GPS_sats;
 
   dtostrf(AirSpeed, 4, 6, buff);
   Tele += buff;
   Tele += ",";
 
-  dtostrf(vol, 4, 6, buff);
+  dtostrf(state, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+
+  dtostrf(ppm, 4, 6, buff);
   Tele += buff;
   
-  Tele+=","+GPS_time+","+GPS_latitude+","+GPS_longitude+","+GPS_altitude+","+GPS_sats;
 }
 
-char Software_stat()
+void update_state()
 {
   /*
    0 for boot
-   1 for idle 
-   2 for Launch Detect
-   3 for Payload Deployement
-   4 for parachute deployement
-   5 for Descent 
-   6 for Ascent */
-   if(LDR())
-   return '3';
-   
-}
+   1 Idle
+   2 Ascent
+   3 Cansat Deployment
+   4 Descent
+   5 Payload Deployment
+   6 Parachute Deployment 
+   7 End
+  */
 
-bool LDR()
-{
-  
+   if(state==0 && pres_alt==prev_alt && pres_alt<5) //still inside rocket
+      state=1;                                      //idle
+
+   else if(state==1 && pres_alt>prev_alt)           //inside rocket
+      state=2;                                      //Launch Detect
+
+   else if(state==2 && analogRead(A1)<100)          //LDR shows cansat is outside
+      state=3;                                      //Cansat Deployement 
+
+   else if(state==3 && pres_alt<prev_alt)           //payload inside container descending
+      state=4;                                      //Descent
+
+   else if(state==4 && pres_alt<=450)               //release the payload
+      state=5;                                      //Payload Deployement
+
+   else if(state==5 && pres_alt<=100)               //release payload parachute
+      state=6;
+
+   else if(state==6 && pres_alt<=5)
+      state=7;
 }
