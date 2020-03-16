@@ -1,40 +1,54 @@
 #include "CANSAT_GAGAN.h"
+#define BURNPIN 30  // define it 
+#define demand_allocation 20  // Calculted time for burinig mechanism
 
 SoftwareSerial GPSSerial(4,3);
 Adafruit_GPS GPS(&GPSSerial);
+
 SoftwareSerial PPMserial(6,5);
 HPMA115S0 my_hpm(PPMserial);
-float temperature, pressure, gnd_alt, pres_alt, prev_alt;            // Create the temperature, pressure and altitude variables
-BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
+
+volatile float temperature, pressure, gnd_alt, pres_alt, prev_alt;            // Create the temperature, pressure and altitude variables
+BMP280_DEV bmp280;                                                            // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
+
+
 DS3231 Clock;
-bool Century=false;
-bool h12;
-bool PM;
-byte ADay, AHour, AMinute, ASecond, ABits;
-bool ADy, A12h, Apm;
-int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
-double vol;
+volatile bool Century=false;
+volatile bool h12;
+volatile bool PM;
+volatile byte ADay, AHour, AMinute, ASecond, ABits;
+volatile bool ADy, A12h, Apm;
+volatile int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
+
+
+volatile double vol; // voltage
+
 struct GPS_Time
 {
   int h;
   int m;
   int s;
 }GPS_time;
-String GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
-char buff[100];
-String Tele = "";
-float pm25,pm10,ppm,AirSpeed;
 
-int Hr_base;
-int Minutes_base;
-int Sec_base;
+volatile String GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
+
+
+volatile char buff[100];
+volatile String Tele = "";
+volatile float pm25,pm10,ppm,AirSpeed;
+
+volatile int Hr_base;
+volatile int Minutes_base;
+volatile int Sec_base;
 
 int timer1_counter;
 
 const int CSpin = 10;
 File sensorData;
-int state;
+volatile int state;
 
+bool demand;          //handles deactivation demand of burining mechanism
+int demand_cycles;    // demand cycle counter
 void setup()
 {
   Serial.begin(19200);
@@ -44,8 +58,10 @@ void setup()
   pinMode(A0,INPUT);    //battery volatge measurement
   pinMode(A1,INPUT);    //LDR voltage measurement
   pinMode(A7,INPUT);    //air speed sensor analog input
-  
-  pkt=0;
+
+  demand = false;
+  demand_cycles=0
+  pkt=0;   // setup continuity of packets to be done 
   setupGPS();
   setupBMP();
   Serial.println("Now calling RTC");
@@ -80,97 +96,42 @@ ISR(TIMER1_OVF_vect)        // interrupt service routine
   TCNT1 = timer1_counter;   // preload timer
   Packet();
   writeToSD();
+  if(!(demand_cycles - demand_allocation)&&demand)   // deactivates burning mechanism after demand is generated 
+      payload_burn_stop();
+   else
+       demand_cycles++;
   Serial.println(Tele);
 }
-
+//the list of sensors is
+//1 PPM HPMA115S0 **
+//2 BMP 280**
+//3 Air Speed MPX....**
+//4 RTC DS3231**
+//5 GPS 
+//6 Voltage Measurement **
+//7 Servos Parachute Release 
+//8 Burning Mechanism 
+//9 state Update 
+//10 Packet**
+void payload_burn_start()
+{
+  digitalWrite(BURNPIN, HIGH);
+}
+void payload_burn_stop()
+{
+  {
+  digitalWrite(BURNPIN, LOW);
+}
+}
+void Servo_parachute();
 void loop()
 {
-  Mission_time();
-  voltage();
-  GPSUPDATE();
-  BMPUPDATE();
-  PPMUPDATE();
-  AirSpeedUpdate();
-  update_state();
+  Mission_time();     //rtc
+  voltage();          //voltage divider
+  GPSUPDATE();        //gps
+  BMPUPDATE();        //pressure and temperature 
+  PPMUPDATE();        // Particulate sensor HPMA115s0**
+  AirSpeedUpdate();   // Air speed **
+  update_state();     // yet toe decided 
   delay(100);
-}
-
-void Packet()
-{ 
-  Tele = "5160,";
-  
-  pkt++;
-  
-  dtostrf(Ms_time, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-  
-  dtostrf(pkt, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";  
-  
-  dtostrf(pres_alt, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";  
-  
-  dtostrf(pressure, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-    
-  dtostrf(temperature, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-
-  dtostrf(vol, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-
-  Tele+= "," + (String)(GPS_time.h) + ":" + (String)(GPS_time.m) + ":" + (String)(GPS_time.s) + "," + GPS_latitude + "," + GPS_longitude + "," + GPS_altitude + "," + GPS_sats;
-
-  dtostrf(AirSpeed, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-
-  dtostrf(state, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
-
-  dtostrf(ppm, 4, 6, buff);
-  Tele += buff;
-  
-}
-
-void update_state()
-{
-  /*
-   0 for boot
-   1 Idle
-   2 Ascent
-   3 Cansat Deployment
-   4 Descent
-   5 Payload Deployment
-   6 Parachute Deployment 
-   7 End
-  */
-
-   if(state==0 && pres_alt==prev_alt && pres_alt<5) //still inside rocket
-      state=1;                                      //idle
-
-   else if(state==1 && pres_alt>prev_alt)           //inside rocket
-      state=2;                                      //Launch Detect
-
-   else if(state==2 && analogRead(A1)<100)          //LDR shows cansat is outside
-      state=3;                                      //Cansat Deployement 
-
-   else if(state==3 && pres_alt<prev_alt)           //payload inside container descending
-      state=4;                                      //Descent
-
-   else if(state==4 && pres_alt<=450)               //release the payload
-      state=5;                                      //Payload Deployement
-
-   else if(state==5 && pres_alt<=100)               //release payload parachute
-      state=6;
-
-   else if(state==6 && pres_alt<=5)
-      state=7;
 }
