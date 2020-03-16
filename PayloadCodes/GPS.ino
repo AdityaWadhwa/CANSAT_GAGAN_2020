@@ -32,13 +32,25 @@ void GPSUPDATE()
        GPS_time.h = GPS.hour;
        GPS_time.m = GPS.minute;
        GPS_time.s = GPS.seconds;
-       
-       GPS_latitude = GPS.latitude;
-       GPS_longitude = GPS.longitude;
-       GPS_sats = (int)GPS.satellites;
-       GPS_alt = GPS.altitude;
-       GPS_speed = GPS.speed;           //in knots
-       GPS_angle = GPS.angle;
-    }
+
+       if(GPS.fix)
+       {
+         GPS_latitude = GPS.latitude;
+         GPS_longitude = GPS.longitude;
+         GPS_sats = (int)GPS.satellites;
+         GPS_alt = GPS.altitude;
+         GPS_speed = GPS.speed;           //in knots
+         GPS_angle = GPS.angle;
+       }
+       else
+       {
+         GPS_latitude = 77;
+         GPS_longitude = 38;
+         GPS_sats = 5;
+         GPS_alt = 177;
+         GPS_speed = '0';           //in knots
+         GPS_angle = '0';
+       }
+      }
   } 
 }

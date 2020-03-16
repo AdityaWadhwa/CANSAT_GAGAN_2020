@@ -7,23 +7,26 @@ HPMA115S0 my_hpm(PPMserial);
 float temperature, pressure, gnd_alt, pres_alt, prev_alt;            // Create the temperature, pressure and altitude variables
 BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
 DS3231 Clock;
-bool Century=false;
+//bool Century=false;
 bool h12;
 bool PM;
-byte ADay, AHour, AMinute, ASecond, ABits;
-bool ADy, A12h, Apm;
+//byte ADay, AHour, AMinute, ASecond, ABits;
+//bool ADy, A12h, Apm;
 int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
-double vol;
+float vol;
+
 struct GPS_Time
 {
   int h;
   int m;
   int s;
 }GPS_time;
-String GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
-char buff[100];
+int GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
+
+char buff[10];
 String Tele = "";
-float pm25,pm10,ppm,AirSpeed;
+float pm25,pm10,ppm;
+int AirSpeed;
 
 int Hr_base;
 int Minutes_base;
@@ -32,25 +35,29 @@ int Sec_base;
 int timer1_counter;
 
 const int CSpin = 10;
-File sensorData;
-int state;
+//File sensorData;
+
+//int state;
 
 void setup()
 {
-  Serial.begin(19200);
+  Serial.begin(9600);
   Serial.println("Setup called");
   
   pinMode(8,INPUT);     //PWM to camera, not in use right now
   pinMode(A0,INPUT);    //battery volatge measurement
   pinMode(A1,INPUT);    //LDR voltage measurement
   pinMode(A7,INPUT);    //air speed sensor analog input
+//  pinMode(CSpin,OUTPUT);
+//  digitalWrite(CSpin,HIGH);
+
   
   pkt=0;
   setupGPS();
   setupBMP();
   Serial.println("Now calling RTC");
   setupRTC();
-  setupSD();
+//  setupSD();
   setupPPM();
 
   // initialize timer1 
@@ -71,15 +78,15 @@ void setup()
   Serial.println("Setup finish");
   delay(100);
 
+  Serial.println("exiting setup");
   interrupts();             // enable all interrupts
-
 }
 
 ISR(TIMER1_OVF_vect)        // interrupt service routine 
 {
   TCNT1 = timer1_counter;   // preload timer
   Packet();
-  writeToSD();
+//  writeToSD();
   Serial.println(Tele);
 }
 
@@ -125,15 +132,42 @@ void Packet()
   Tele += buff;
   Tele += ",";
 
-  Tele+= "," + (String)(GPS_time.h) + ":" + (String)(GPS_time.m) + ":" + (String)(GPS_time.s) + "," + GPS_latitude + "," + GPS_longitude + "," + GPS_altitude + "," + GPS_sats;
+  dtostrf(GPS_time.h, 4, 6, buff);
+  Tele += buff;
+  Tele += ":";
+  
+  dtostrf(GPS_time.m, 4, 6, buff);
+  Tele += buff;
+  Tele += ":";
+  
+  dtostrf(GPS_time.s, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+  
+  dtostrf(GPS_latitude, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+  
+  dtostrf(GPS_longitude, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+  
+  dtostrf(GPS_altitude, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+  
+  dtostrf(GPS_sats, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+ // Tele+= "," + (String)(GPS_time.h) + ":" + (String)(GPS_time.m) + ":" + (String)(GPS_time.s) + "," + GPS_latitude + "," + GPS_longitude + "," + GPS_altitude + "," + GPS_sats;
 
   dtostrf(AirSpeed, 4, 6, buff);
   Tele += buff;
   Tele += ",";
 
-  dtostrf(state, 4, 6, buff);
-  Tele += buff;
-  Tele += ",";
+//  dtostrf(state, 4, 6, buff);
+//  Tele += buff;
+//  Tele += ",";
 
   dtostrf(ppm, 4, 6, buff);
   Tele += buff;
@@ -152,7 +186,7 @@ void update_state()
    6 Parachute Deployment 
    7 End
   */
-
+  /*
    if(state==0 && pres_alt==prev_alt && pres_alt<5) //still inside rocket
       state=1;                                      //idle
 
@@ -173,4 +207,5 @@ void update_state()
 
    else if(state==6 && pres_alt<=5)
       state=7;
+   */
 }
