@@ -4,30 +4,40 @@ SoftwareSerial GPSSerial(4,3);
 Adafruit_GPS GPS(&GPSSerial);
 SoftwareSerial PPMserial(6,5);
 HPMA115S0 my_hpm(PPMserial);
-float temperature, pressure, gnd_alt, pres_alt, prev_alt;            // Create the temperature, pressure and altitude variables
-BMP280_DEV bmp280;  // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
-DS3231 Clock;
+float temperature, pressure, gnd_alt, pres_alt, prev_alt;             // Create the temperature, pressure and altitude variables
+BMP280_DEV bmp280;                                                    // Instantiate (create) a BMP280_DEV object and set-up for I2C operation
+RTClib RTC;
+
+//DS3231 Clock;
 //bool Century=false;
-bool h12;
-bool PM;
+//bool h12;
+//bool PM;
 //byte ADay, AHour, AMinute, ASecond, ABits;
 //bool ADy, A12h, Apm;
-int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time,pkt;
+//int Ms_hours,Ms_Minutes,Ms_Sec,Ms_time;
+
+int time_base, time_now;
+int pkt;
 float vol;
 
 struct GPS_Time
 {
-  int h;
-  int m;
-  int s;
+  uint8_t h;
+  uint8_t m;
+  uint8_t s;
 }GPS_time;
-int GPS_latitude,GPS_longitude,GPS_sats,GPS_altitude,GPS_alt,GPS_speed,GPS_angle;
+uint8_t GPS_latitude,GPS_longitude,GPS_sats;
+int GPS_altitude;
 
-char buff[10];
-String Tele = "";
-float pm25,pm10,ppm;
-int AirSpeed;
+//char buff[5];
+//String Tele = "";
+char* Tele;
 
+float ppm;
+uint8_t AirSpeed;
+
+uint8_t state;
+/*
 int Hr_base;
 int Minutes_base;
 int Sec_base;
@@ -35,14 +45,14 @@ int Sec_base;
 int timer1_counter;
 
 const int CSpin = 10;
-//File sensorData;
-
-//int state;
+*/
+File sensorData;
+//DateTime now;
 
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("Setup called");
+  Serial.println(F("Setup called"));
   
   pinMode(8,INPUT);     //PWM to camera, not in use right now
   pinMode(A0,INPUT);    //battery volatge measurement
@@ -55,9 +65,8 @@ void setup()
   pkt=0;
   setupGPS();
   setupBMP();
-  Serial.println("Now calling RTC");
   setupRTC();
-//  setupSD();
+  setupSD();
   setupPPM();
 
   // initialize timer1 
@@ -69,24 +78,23 @@ void setup()
   //timer1_counter = 64911;   // preload timer 65536-16MHz/256/100Hz
   //timer1_counter = 64286;   // preload timer 65536-16MHz/256/50Hz
   //timer1_counter = 34286;   // preload timer 65536-16MHz/256/2Hz
-  timer1_counter = 3036;   // preload timer 65536-16MHz/256/1Hz
+  //timer1_counter = 3036;   // preload timer 65536-16MHz/256/1Hz
   
-  TCNT1 = timer1_counter;   // preload timer
+  TCNT1 = 3036;   // preload timer
   TCCR1B |= (1 << CS12);    // 256 prescaler 
   TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
 
-  Serial.println("Setup finish");
   delay(100);
 
-  Serial.println("exiting setup");
+  Serial.println(F("exiting setup"));
   interrupts();             // enable all interrupts
 }
 
 ISR(TIMER1_OVF_vect)        // interrupt service routine 
 {
-  TCNT1 = timer1_counter;   // preload timer
+  TCNT1 = 3036;   // preload timer
   Packet();
-//  writeToSD();
+  writeToSD();
   Serial.println(Tele);
 }
 
@@ -104,74 +112,125 @@ void loop()
 
 void Packet()
 { 
-  Tele = "5160,";
-  
   pkt++;
+
+  sprintf(Tele,"5160,%d,%d,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%f",time_now,pkt,pres_alt,pressure,temperature,vol,GPS_time.h,GPS_time.m,GPS_time.s,GPS_latitude,GPS_longitude,GPS_altitude,GPS_sats,AirSpeed,state,ppm);
+  /*
+  Tele = "5160,";
+  //Serial.print("5160,");
   
-  dtostrf(Ms_time, 4, 6, buff);
+  dtostrf(time_now, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+  
+  //Serial.print(time_now);
+  //Serial.print(",");
   
   dtostrf(pkt, 4, 6, buff);
   Tele += buff;
   Tele += ",";  
   
+  //Serial.print(pkt);
+  //Serial.print(",");
+  
   dtostrf(pres_alt, 4, 6, buff);
   Tele += buff;
   Tele += ",";  
   
+  //Serial.print(pres_alt);
+  //Serial.print(",");
+  
   dtostrf(pressure, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+  
+  //Serial.print(pressure);
+  //Serial.print(",");
     
   dtostrf(temperature, 4, 6, buff);
   Tele += buff;
   Tele += ",";
-
+  
+  //Serial.print(temperature);
+  //Serial.print(",");
+  
   dtostrf(vol, 4, 6, buff);
   Tele += buff;
   Tele += ",";
-
+  
+  //Serial.print(vol);
+  //Serial.print(",");
+  
   dtostrf(GPS_time.h, 4, 6, buff);
   Tele += buff;
   Tele += ":";
+  
+  //Serial.print(GPS_time.h);
+  //Serial.print(",");
   
   dtostrf(GPS_time.m, 4, 6, buff);
   Tele += buff;
   Tele += ":";
   
+  //Serial.print(GPS_time.m);
+  //Serial.print(",");
+  
   dtostrf(GPS_time.s, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+  
+  //Serial.print(GPS_time.s);
+  //Serial.print(",");
   
   dtostrf(GPS_latitude, 4, 6, buff);
   Tele += buff;
   Tele += ",";
   
+  //Serial.print(GPS_latitude);
+  //Serial.print(",");
+  
   dtostrf(GPS_longitude, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+  
+  //Serial.print(GPS_longitude);
+  //Serial.print(",");
   
   dtostrf(GPS_altitude, 4, 6, buff);
   Tele += buff;
   Tele += ",";
   
+  //Serial.print(GPS_altitude);
+  //Serial.print(",");
+  
   dtostrf(GPS_sats, 4, 6, buff);
   Tele += buff;
   Tele += ",";
+  
+  //Serial.print(GPS_sats);
+  //Serial.print(",");
+  
  // Tele+= "," + (String)(GPS_time.h) + ":" + (String)(GPS_time.m) + ":" + (String)(GPS_time.s) + "," + GPS_latitude + "," + GPS_longitude + "," + GPS_altitude + "," + GPS_sats;
-
+  
   dtostrf(AirSpeed, 4, 6, buff);
   Tele += buff;
   Tele += ",";
-
-//  dtostrf(state, 4, 6, buff);
-//  Tele += buff;
-//  Tele += ",";
-
+  
+  //Serial.print(AirSpeed);
+  //Serial.print(",");
+  
+  dtostrf(state, 4, 6, buff);
+  Tele += buff;
+  Tele += ",";
+  
+  //Serial.print(state);
+  //Serial.print(",");
+  
   dtostrf(ppm, 4, 6, buff);
   Tele += buff;
   
+  //Serial.println(ppm);
+  */
 }
 
 void update_state()
@@ -188,24 +247,26 @@ void update_state()
   */
   /*
    if(state==0 && pres_alt==prev_alt && pres_alt<5) //still inside rocket
-      state=1;                                      //idle
+      state++;                                      //idle
 
    else if(state==1 && pres_alt>prev_alt)           //inside rocket
-      state=2;                                      //Launch Detect
+      state++;                                      //Launch Detect
 
    else if(state==2 && analogRead(A1)<100)          //LDR shows cansat is outside
-      state=3;                                      //Cansat Deployement 
+      state++;                                      //Cansat Deployement 
 
    else if(state==3 && pres_alt<prev_alt)           //payload inside container descending
-      state=4;                                      //Descent
+      state++;                                      //Descent
 
    else if(state==4 && pres_alt<=450)               //release the payload
-      state=5;                                      //Payload Deployement
+      state++;                                      //Payload Deployement
 
    else if(state==5 && pres_alt<=100)               //release payload parachute
-      state=6;
+      state++;
 
    else if(state==6 && pres_alt<=5)
-      state=7;
+      state++;
    */
+   if( (state==0 && pres_alt==prev_alt && pres_alt<5) || (state==1 && pres_alt>prev_alt) || (state==2 && analogRead(A1)<100) || (state==3 && pres_alt<prev_alt) || (state==4 && pres_alt<=450) || (state==5 && pres_alt<=100) || (state==6 && pres_alt<=5) )
+      state++; 
 }

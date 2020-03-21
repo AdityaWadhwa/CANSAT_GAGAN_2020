@@ -38,18 +38,18 @@ void GPSUPDATE()
          GPS_latitude = GPS.latitude;
          GPS_longitude = GPS.longitude;
          GPS_sats = (int)GPS.satellites;
-         GPS_alt = GPS.altitude;
-         GPS_speed = GPS.speed;           //in knots
-         GPS_angle = GPS.angle;
+         GPS_altitude = GPS.altitude;
+         //GPS_speed = GPS.speed;           //in knots
+         //GPS_angle = GPS.angle;
        }
        else
        {
          GPS_latitude = 77;
          GPS_longitude = 38;
          GPS_sats = 5;
-         GPS_alt = 177;
-         GPS_speed = '0';           //in knots
-         GPS_angle = '0';
+         GPS_altitude = 177;
+         //GPS_speed = '0';           //in knots
+         //GPS_angle = '0';
        }
       }
   } 

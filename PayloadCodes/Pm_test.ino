@@ -1,7 +1,7 @@
 void setupPPM()
 {
   PPMserial.begin(9600);
-  Serial.println ("HPMA115S0 software serial example");
+  //Serial.println (F("HPMA115S0 software serial example"));
 
   delay(100);
  
@@ -9,30 +9,31 @@ void setupPPM()
   int my_status = my_hpm.stop_autosend(); 
   if (my_status == 1)
   {
-    Serial.println("Autosend disabled");
+    //Serial.println(F("Autosend disabled"));
   }
   else
   {
-    Serial.print("Error");  
+    Serial.print(F("Error"));  
   }
-  delay(500);
+  //delay(500);
   
   // Start fan (and measurement mode)
   my_status = my_hpm.start_measurement();  
   if (my_status == 1)
   {
-    Serial.println("Start Particle Measurement");
+    //Serial.println(F("Start Particle Measurement"));
   }
   else
   {
-    Serial.print("Error");  
+    Serial.print(F("Error"));  
   }
-  delay(5000);
+  //delay(5000);
 }
 void PPMUPDATE()
 {
+  float pm25,pm10;
   if(my_hpm.read(&pm25,&pm10))
         ppm = pm25;
-  else
-        ppm = ppm;  //preserve last reading
+  //else
+  //      ppm = ppm;  //preserve last reading,don't need to write this
 }
